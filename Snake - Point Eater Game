@@ -1,0 +1,260 @@
+void(* resetFunc) (void) = 0; 
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);           // select the pins used on the LCD panel
+
+// define some values used by the panel and buttons
+int lcd_key     = 0;
+int adc_key_in  = 0;
+
+#define btnRIGHT  0
+#define btnUP     1
+#define btnDOWN   2
+#define btnLEFT   3
+#define btnSELECT 4
+#define btnRST    5
+#define btnNONE   -1
+#define WIN_SCORE 30
+#define FOOD_TIMEOUT 5
+#define TIMEOUT 40
+
+int read_LCD_buttons(){               // read the buttons
+    adc_key_in = analogRead(0);       // read the value from the sensor 
+     
+     if (adc_key_in < 50)   return btnRIGHT;  
+     if (adc_key_in < 195)  return btnUP; 
+     if (adc_key_in < 380)  return btnDOWN; 
+     if (adc_key_in < 555)  return btnLEFT; 
+     if (adc_key_in < 790)  return btnSELECT;   
+     if (adc_key_in < 1010) return btnRST; 
+     return btnNONE;
+}
+
+String getTextButtonRead()
+{
+   lcd_key = read_LCD_buttons();   // read the buttons
+
+   switch (lcd_key)
+   {               // depending on which button was pushed, we perform an action
+
+       case btnRIGHT:{             //  push button "RIGHT" and show the word on the screen
+            return "RIGHT";
+            break;
+       }
+       case btnLEFT:{
+             return "LEFT"; //  push button "LEFT" and show the word on the screen
+             break;
+       }    
+       case btnUP:{
+             return "UP";  //  push button "UP" and show the word on the screen
+             break;
+       }
+       case btnDOWN:{
+             return "DOWN";  //  push button "DOWN" and show the word on the screen
+             break;
+       }
+       case btnSELECT:{
+             return "SELECT";  //  push button "SELECT" and show the word on the screen
+             break;
+       }
+       case btnRST:{
+             return "RST";  //  No action  will show "None" on the screen
+             break;
+       }
+       case btnNONE:{
+             return "NONE";  //  No action  will show "None" on the screen
+             break;
+       }
+   }
+}
+unsigned int startTime = millis()/1000;
+bool gameStarted = false;
+int food_time = 0;
+
+void startGame()
+{
+  String btnReadText = getTextButtonRead();
+  while(btnReadText != "SELECT")
+  {
+    btnReadText = getTextButtonRead();
+  }
+  gameStarted = true;
+  startTime = millis()/1000;
+}
+
+
+int food1_col = random(0,14);
+int food2_col = random(0,14);
+int food1_row = random(0,2);
+int food2_row = random(0,2);
+int score = 0;
+int eater_col = random(0,14);
+int eater_row = random(0,2);
+int food1_val = random(0,10);
+int food2_val = random(0,10);
+String ButtonPressCurrent;
+int currentTime = 0;
+bool food1_destroyed = false, food2_destroyed = false;
+
+void generateRandomFood1Pos()
+{
+  food1_col = random(0,14); 
+  food1_row = random(0,2); 
+  food1_val = random(0,10);
+}
+void generateRandomFood2Pos()
+{
+  food2_col = random(0,14);
+  food2_row = random(0,2);
+  food2_val = random(0,10); 
+}
+int str_to_int(String s)
+{
+  if(s == "RIGHT"){return 1;}
+  if(s == "LEFT"){return 2;}
+  if(s == "UP"){return 3;}
+  if(s == "DOWN"){return 4;}
+  if(s == "NONE"){return -1;}
+  if(s == "SELECT"){return -99;}
+  return 0;  
+}
+void setup(){
+  Serial.begin(9600);
+   randomSeed(analogRead(15));
+   lcd.begin(16, 2);               // start the library
+   lcd.setCursor(0,0);             // set the LCD cursor   position 
+   lcd.print("Press \"SELECT\"");
+   lcd.setCursor(0,1);
+   lcd.print("to Start:");  // print a simple message on the LCD
+   startGame();
+   lcd.clear();
+   while(((food1_col == food2_col) && (food1_row == food1_row)) && 
+     ((eater_row == food1_row) || (eater_row == food2_row)) && ((eater_row == food1_row) || (eater_row ==  food2_row)))
+   {
+      generateRandomFood1Pos();
+      generateRandomFood2Pos();
+   }
+}
+void loop(){
+   delay(200);
+   lcd.clear();
+   lcd.setCursor(14,1);             // move cursor to second line "1" and 9 spaces over
+   currentTime = (millis()/1000) - startTime;
+   lcd.print(currentTime);      // display seconds elapsed since power-up
+   if(food_time > FOOD_TIMEOUT*8)
+   {
+      food1_destroyed = true;
+      food2_destroyed = true;
+      food_time = 0;
+   }
+   else
+   {
+      food_time++; 
+   }
+   lcd.setCursor(14,0);
+   lcd.print(score);
+   while((food1_col == food2_col) && (food1_row == food1_row))
+   {
+      generateRandomFood1Pos();
+      generateRandomFood2Pos();
+   }
+   if(food1_destroyed)
+   {
+      generateRandomFood1Pos();
+      food1_destroyed = false;
+   }
+   if(food2_destroyed)
+   {
+      generateRandomFood2Pos();
+      food2_destroyed = false;
+   }
+   lcd.setCursor(food1_col, food1_row);
+   lcd.print(food1_val);
+   lcd.setCursor(food2_col, food2_row);
+   lcd.print(food2_val);
+   lcd.setCursor(eater_col, eater_row);
+   lcd.print("#");
+   ButtonPressCurrent = getTextButtonRead();
+   if(ButtonPressCurrent != "None")
+   {
+    ButtonPressCurrent = getTextButtonRead();
+   }
+   switch(str_to_int(ButtonPressCurrent))
+   {
+    case 1:
+    {
+      eater_col++;  
+      Serial.print("\ncase 1 ");
+      Serial.print(eater_col);
+      break;
+    }
+    case 2:
+    {
+      eater_col--;
+      Serial.print("\ncase 2 ");
+      Serial.print(eater_col);
+      break;
+    }
+    case 3:
+    {
+      eater_row++;
+      Serial.print("\ncase 3 ");
+      Serial.print(eater_row);
+      break;  
+    }
+    case 4:
+    {
+      eater_row--;
+      Serial.print("\ncase 4 ");
+      Serial.print(eater_row);
+      break;
+    }
+    case -99:
+    {
+      resetFunc();
+    }
+   }
+   if(eater_col == 14){eater_col = 0;}
+   if(eater_col == -1){eater_col = 13;}
+   if(eater_row == 2){eater_row = 0;}
+   if(eater_row == -1){eater_row = 1;}
+
+   if(((eater_row == food1_row) && (eater_col == food1_col)))
+   {
+     score = score + food1_val;
+     food1_destroyed = true;
+   }
+   if(((eater_row == food2_row) && (eater_col == food2_col)))
+   {
+      food2_destroyed = true;
+      score = score + food2_val;
+   }
+
+
+   if(currentTime >= TIMEOUT)
+   {
+      lcd.clear();
+      lcd.setCursor(0,0);             // set the LCD cursor   position 
+      lcd.print("YOU LOOSE !");
+      lcd.setCursor(0,1);
+      lcd.print("SCORE = ");
+      lcd.setCursor(8,1);
+      lcd.print(score);
+      delay(5000);
+      resetFunc();
+   }
+   if(score >= WIN_SCORE)
+   {
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("YOU WIN !");
+      lcd.setCursor(0,1);
+      lcd.print("SCORE = ");
+      lcd.setCursor(8,1);
+      lcd.print(score);
+      delay(5000);
+      resetFunc();
+   }
+   
+   
+}
